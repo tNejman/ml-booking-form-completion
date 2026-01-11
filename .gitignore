@@ -1,0 +1,8 @@
+venv
+.mypy_cache
+__pycache__
+*.jsonl
+*.pkl
+model1.py
+mock_model.py
+notes.txt

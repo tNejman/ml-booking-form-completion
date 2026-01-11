@@ -95,7 +95,7 @@ class BasePredictionModel(PredictionModel):
 
     def predict(self, description: str) -> dict[str, str]:
         if not "amenities" in self.stats:
-            self.stats["amenities"] = ""
+            self.stats["amenities"] = []
         self.stats["model_version"] = "baseline"
         return self.stats
 
@@ -170,7 +170,7 @@ class AdvancedPredictionModel(PredictionModel):
                 predictions[target] = None
         
         if not "amenities" in predictions:
-            predictions["amenities"] = ""
+            predictions["amenities"] = []
         predictions["model_version"] = "baseline"
         return predictions
 
@@ -241,7 +241,8 @@ def train_and_evaluate(base_model, advanced_model, csv_path="listings1.csv", tra
         print(f"Error: {csv_path} not found.")
         return
 
-    df["description"] = df["description"].fillna("")
+    # df["description"] = df["description"].fillna("")
+    df.dropna(subset=["description"])
 
     print(f"2. Splitting data (Train: {train_ratio:.0%}, Test: {1-train_ratio:.0%})...")
     df_train, df_test = train_test_split(df, train_size=train_ratio, random_state=42)
