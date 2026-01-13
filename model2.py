@@ -58,7 +58,6 @@ class TextCleaner(BaseEstimator, TransformerMixin):
         text = re.sub(r"\s+", " ", text).strip()
         return text
 
-# --- 2. Model Definitions ---
 
 class PredictionModel:
     """Parent class to hold target definitions and interface."""
@@ -92,7 +91,6 @@ class BasePredictionModel(PredictionModel):
         """
         print(f"  [BaseModel] Learning naive statistics from {len(df_train)} rows...")
         
-        # Train Classification (Mode)
         for target in self.TARGETS_CLASS:
             if target in df_train.columns:
                 valid = df_train[target].dropna()
@@ -101,7 +99,6 @@ class BasePredictionModel(PredictionModel):
                 else:
                     self.stats[target] = "Unknown"
 
-        # Train Regression (Median)
         for target in self.TARGETS_REG:
             if target in df_train.columns:
                 valid = df_train[target].dropna()
@@ -112,8 +109,7 @@ class BasePredictionModel(PredictionModel):
         return self
 
     def predict(self, description: str) -> dict[str, str]:
-        if not "amenities" in self.stats:
-            self.stats["amenities"] = 
+        self.stats["amenities"] = extract_amenities_from_description(description)
         self.stats["model_version"] = "baseline"
         return self.stats
 
@@ -138,11 +134,8 @@ class AdvancedPredictionModel(PredictionModel):
         """
         print(f"  [AdvancedModel] Training ML pipelines on {len(df_train)} rows...")
         
-        # Train Classification
         for target in self.TARGETS_CLASS:
             self._train_pipeline(df_train, target, model_type='classification')
-
-        # Train Regression
         for target in self.TARGETS_REG:
             self._train_pipeline(df_train, target, model_type='regression')
         
@@ -178,8 +171,6 @@ class AdvancedPredictionModel(PredictionModel):
         for target, pipeline in self.pipelines.items():
             try:
                 pred = pipeline.predict(input_data)[0]
-                
-                # Round regression targets to nearest integer
                 if target in self.TARGETS_REG:
                     pred = int(round(pred))
                 
@@ -187,12 +178,9 @@ class AdvancedPredictionModel(PredictionModel):
             except Exception:
                 predictions[target] = None
         
-        if not "amenities" in predictions:
-            predictions["amenities"] = []
-        predictions["model_version"] = "baseline"
+        predictions["amenities"] = extract_amenities_from_description(description)
+        predictions["model_version"] = "advanced"
         return predictions
-
-# --- 3. Library Functions ---
 
 def evaluate_models(base_model, adv_model, df_test):
     """
@@ -259,17 +247,14 @@ def train_and_evaluate(base_model, advanced_model, csv_path="listings1.csv", tra
         print(f"Error: {csv_path} not found.")
         return
 
-    # df["description"] = df["description"].fillna("")
     df.dropna(subset=["description"])
 
     print(f"2. Splitting data (Train: {train_ratio:.0%}, Test: {1-train_ratio:.0%})...")
     df_train, df_test = train_test_split(df, train_size=train_ratio, random_state=42)
 
-    # Learn
     base_model.learn(df_train)
     advanced_model.learn(df_train)
 
-    # Save
     artifacts = {
         "base_model": base_model, 
         "advanced_model": advanced_model
@@ -277,5 +262,4 @@ def train_and_evaluate(base_model, advanced_model, csv_path="listings1.csv", tra
     joblib.dump(artifacts, save_path)
     print(f"\nModels saved to {save_path}")
 
-    # Evaluate
     evaluate_models(base_model, advanced_model, df_test)
