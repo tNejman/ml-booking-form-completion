@@ -11,16 +11,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, accuracy_score
 
 def extract_amenities_from_description(description: str):
-    """
-    Extracts a list of unique amenity categories found in the description based on regex patterns.
-    """
     regex_map = {}
     with open("amenity_patterns.json") as file:
         regex_map = json.load(file)
+    if len(regex_map) == 0:
+        raise Exception("Loaded 0 regex patterns.")
+    
     compiled_patterns = {key: re.compile(pattern) for key, pattern in regex_map.items()}
-    
     found_amenities = set()
-    
     
     for category, pattern in compiled_patterns.items():
         if category not in found_amenities:
@@ -30,9 +28,6 @@ def extract_amenities_from_description(description: str):
     return sorted(list(found_amenities))
 
 class TextCleaner(BaseEstimator, TransformerMixin):
-    """
-    Custom transformer to clean text data for the pipeline.
-    """
     def fit(self, X, y=None):
         return self
 
@@ -60,35 +55,21 @@ class TextCleaner(BaseEstimator, TransformerMixin):
 
 
 class PredictionModel:
-    """Parent class to hold target definitions and interface."""
     TARGETS_CLASS = ["room_type", "property_type", "bathrooms_text"]
     TARGETS_REG = ["bedrooms", "beds", "accommodates"]
     
     def learn(self, df_train: pd.DataFrame):
-        """
-        Train the model using the provided dataframe.
-        """
         raise NotImplementedError("Subclasses must implement learn method.")
 
     def predict(self, description: str) -> dict[str, str]:
-        """
-        Predict targets based on the description.
-        """
         raise NotImplementedError("Subclasses must implement predict method.")
 
 
 class BasePredictionModel(PredictionModel):
-    """
-    Naive model that predicts the Mode (classification) 
-    or Median (regression) of the training set.
-    """
     def __init__(self):
         self.stats = {}
 
     def learn(self, df_train: pd.DataFrame):
-        """
-        Calculates simple statistics (Median/Mode) from the training set.
-        """
         print(f"  [BaseModel] Learning naive statistics from {len(df_train)} rows...")
         
         for target in self.TARGETS_CLASS:
@@ -115,9 +96,6 @@ class BasePredictionModel(PredictionModel):
 
 
 class AdvancedPredictionModel(PredictionModel):
-    """
-    Machine Learning model using TF-IDF + Ridge/LogisticRegression.
-    """
     def __init__(self):
         self.pipelines = {}
         self.tfidf_params = {
@@ -129,9 +107,6 @@ class AdvancedPredictionModel(PredictionModel):
         }
 
     def learn(self, df_train: pd.DataFrame):
-        """
-        Trains ML pipelines (Classification & Regression) on the training set.
-        """
         print(f"  [AdvancedModel] Training ML pipelines on {len(df_train)} rows...")
         
         for target in self.TARGETS_CLASS:
@@ -183,9 +158,6 @@ class AdvancedPredictionModel(PredictionModel):
         return predictions
 
 def evaluate_models(base_model, adv_model, df_test):
-    """
-    Internal helper to print evaluation metrics.
-    """
     print("\n--- Evaluation on Test Set ---")
     
     classification_targets = ['room_type', 'property_type', 'bathrooms_text']
@@ -228,15 +200,6 @@ def evaluate_models(base_model, adv_model, df_test):
                 
 
 def train_and_evaluate(base_model, advanced_model, csv_path="listings1.csv", train_ratio=0.8, save_path="models.pkl"):
-    """
-    Function to run the full training process. 
-    Can be imported and called by other scripts.
-    
-    Args:
-        csv_path (str): Path to the input CSV.
-        train_ratio (float): Percentage of data to use for training (0.0 - 1.0).
-        save_path (str): Where to save the serialized models.
-    """
     if not (0 < train_ratio < 1):
         raise ValueError("train_ratio must be between 0 and 1")
 
