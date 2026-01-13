@@ -71,7 +71,7 @@ def _prepare_response(result_dict: dict, model_ver: str, pred_id: str) -> dict:
     return {**result_dict, "model_version": model_ver, "prediction_id": pred_id}
 
 
-@app.post("/predict/baseline", response_model=OfferResponse)
+@app.post("/app/predict/baseline", response_model=OfferResponse)
 async def predict_baseline(offer: OfferRequest):
     """
     Uses baseline model.
@@ -81,7 +81,7 @@ async def predict_baseline(offer: OfferRequest):
     return _prepare_response(result, "baseline_forced", prediction_id)
 
 
-@app.post("/predict/advanced", response_model=OfferResponse)
+@app.post("/app/predict/advanced", response_model=OfferResponse)
 async def predict_advanced(offer: OfferRequest):
     """
     Uses advanced ML model.
@@ -91,7 +91,7 @@ async def predict_advanced(offer: OfferRequest):
     return _prepare_response(result, "advanced_forced", prediction_id)
 
 
-@app.post("/predict/ab_test", response_model=OfferResponse)
+@app.post("/app/predict/ab_test", response_model=OfferResponse)
 async def predict_ab_test(offer: OfferRequest):
     """
     Randomly selects model (50/50).
@@ -116,7 +116,7 @@ async def predict_ab_test(offer: OfferRequest):
     return _prepare_response(result, model_name, prediction_id)
 
 
-@app.post("/feedback")
+@app.post("/app/feedback")
 async def save_feedback(feedback: FeedbackRequest):
     """
     Gets info about what user finally sent.
@@ -130,7 +130,7 @@ async def save_feedback(feedback: FeedbackRequest):
     return {"status": "feedback_saved", "id": feedback.prediction_id}
 
 
-@app.get("/health", tags=["System"])
+@app.get("/app/health", tags=["System"])
 def health_check():
     return {"status": "ok"}
 
