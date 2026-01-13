@@ -10,40 +10,24 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, accuracy_score
 
-# --- 1. Utility / Preprocessing ---
-def extract_amenities_from_description(df):
-    regex_patterns = {}
+def extract_amenities_from_description(description: str):
+    """
+    Extracts a list of unique amenity categories found in the description based on regex patterns.
+    """
+    regex_map = {}
     with open("amenity_patterns.json") as file:
-        regex_patterns = json.load(file)
-    def normalize_amenities(val):
-        if pd.isna(val) or val == "":
-            return []
-        if isinstance(val, list):
-            return val
-        if isinstance(val, str):
-            try:
-                return json.loads(val)
-            except json.JSONDecodeError:
-                return [item.strip() for item in val.split(',')]
-        return []
-
-    current_amenities_col = df['amenities'].apply(normalize_amenities)
-
-    updated_amenities = []
-
-    for amenities_list, description in zip(current_amenities_col, df['description']):
-        amenities_set = set(amenities_list)
-        
-        if pd.notna(description) and isinstance(description, str):
-            for amenity_name, pattern in regex_patterns.items():
-                if re.search(pattern, description):
-                    amenities_set.add(amenity_name)
-        
-        updated_amenities.append(list(amenities_set))
-
-    df['amenities'] = updated_amenities
+        regex_map = json.load(file)
+    compiled_patterns = {key: re.compile(pattern) for key, pattern in regex_map.items()}
     
-    return df
+    found_amenities = set()
+    
+    
+    for category, pattern in compiled_patterns.items():
+        if category not in found_amenities:
+            if pattern.search(description):
+                found_amenities.add(category)
+            
+    return sorted(list(found_amenities))
 
 class TextCleaner(BaseEstimator, TransformerMixin):
     """
