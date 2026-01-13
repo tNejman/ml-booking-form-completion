@@ -4,18 +4,15 @@ from typing import List, Set
 import numpy as np
 import pandas as pd
 
-# --- Configuration ---
 PREDICTION_LOG_FILE = "ab_test_logs.jsonl"
 FEEDBACK_LOG_FILE = "feedback_logs.jsonl"
 
-# Define variable types for analysis
 CATEGORICAL_VARS = ["room_type", "property_type", "bathrooms_text"]
 NUMERICAL_VARS = ["bedrooms", "beds", "accommodates"]
 LIST_VARS = ["amenities"]
 
 
 def load_jsonl(file_path: str) -> List[dict]:
-    """Reads a JSONL file and returns a list of dictionaries."""
     data = []
     try:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -29,12 +26,11 @@ def load_jsonl(file_path: str) -> List[dict]:
 
 
 def calculate_jaccard(list1: List, list2: List) -> float:
-    """Calculates Jaccard Similarity (Intersection over Union) for two lists."""
     s1 = set(list1) if isinstance(list1, list) else set()
     s2 = set(list2) if isinstance(list2, list) else set()
 
     if not s1 and not s2:
-        return 1.0  # Both empty = perfect match
+        return 1.0
 
     intersection = len(s1.intersection(s2))
     union = len(s1.union(s2))
@@ -50,14 +46,9 @@ def main():
         print("Insufficient data to run analysis.")
         return
 
-    # Convert to Pandas DataFrames
     df_preds = pd.DataFrame(pred_logs)
     df_feedbacks = pd.DataFrame(feedback_logs)
 
-    # --- Data Preparation ---
-
-    # 1. Flatten the 'prediction' dictionary in the prediction logs
-    # The logs have a nested 'prediction' key containing the model output
     preds_normalized = pd.json_normalize(df_preds["prediction"])
     preds_normalized.columns = [f"pred_{col}" for col in preds_normalized.columns]
 
@@ -66,15 +57,11 @@ def main():
         [df_preds[["prediction_id", "model_used"]], preds_normalized], axis=1
     )
 
-    # 2. Prepare Feedback DataFrame
-    # Rename columns to indicate they are 'actual' values
     rename_map = {
         col: f"actual_{col}" for col in df_feedbacks.columns if col != "prediction_id"
     }
     df_feedbacks_renamed = df_feedbacks.rename(columns=rename_map)
 
-    # 3. Merge Predictions and Feedback on 'prediction_id'
-    # Use inner join to only analyze cases where we have BOTH prediction and feedback
     merged_df = pd.merge(
         df_preds_flat, df_feedbacks_renamed, on="prediction_id", how="inner"
     )
@@ -85,9 +72,6 @@ def main():
         print("No matching prediction IDs found between prediction and feedback logs.")
         return
 
-    # --- Analysis Loop ---
-
-    # Get unique models found in the logs (e.g., 'baseline', 'advanced')
     models = merged_df["model_used"].unique()
 
     results_table = []
@@ -96,13 +80,11 @@ def main():
         model_df = merged_df[merged_df["model_used"] == model]
         stats = {"Model": model, "Count": len(model_df)}
 
-        # 1. Calculate Accuracy for Categorical Variables
         for var in CATEGORICAL_VARS:
             pred_col = f"pred_{var}"
             actual_col = f"actual_{var}"
 
             if pred_col in model_df.columns and actual_col in model_df.columns:
-                # Fill NAs with strict string "None" to allow comparison
                 y_pred = model_df[pred_col].fillna("MISSING").astype(str)
                 y_true = model_df[actual_col].fillna("MISSING").astype(str)
 
@@ -111,13 +93,11 @@ def main():
             else:
                 stats[f"Acc_{var}"] = None
 
-        # 2. Calculate MAE for Numerical Variables
         for var in NUMERICAL_VARS:
             pred_col = f"pred_{var}"
             actual_col = f"actual_{var}"
 
             if pred_col in model_df.columns and actual_col in model_df.columns:
-                # Drop rows where either value is NaN for fair MAE calculation
                 valid_rows = model_df[[pred_col, actual_col]].dropna()
 
                 if not valid_rows.empty:
@@ -128,8 +108,6 @@ def main():
             else:
                 stats[f"MAE_{var}"] = None
 
-        # 3. Calculate Jaccard Similarity for Amenities (List)
-        # Using Jaccard because 'Accuracy' on lists is usually too strict (must be exact match)
         if (
             "pred_amenities" in model_df.columns
             and "actual_amenities" in model_df.columns
@@ -146,10 +124,8 @@ def main():
 
         results_table.append(stats)
 
-    # --- Display Results ---
     results_df = pd.DataFrame(results_table)
 
-    # Transpose for easier reading if there are many metrics
     results_df = results_df.set_index("Model").T
 
     print("\n" + "=" * 50)
@@ -161,5 +137,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # Ensure pandas is installed: pip install pandas
     main()
