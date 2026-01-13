@@ -52,7 +52,6 @@ def main():
     preds_normalized = pd.json_normalize(df_preds["prediction"])
     preds_normalized.columns = [f"pred_{col}" for col in preds_normalized.columns]
 
-    # Combine flattened predictions with metadata (prediction_id, model_used)
     df_preds_flat = pd.concat(
         [df_preds[["prediction_id", "model_used"]], preds_normalized], axis=1
     )
