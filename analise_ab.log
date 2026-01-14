@@ -1,0 +1,18 @@
+--- Loading Logs ---
+Total merged records (Prediction + Feedback): 200
+
+==================================================
+ A/B TEST RESULTS SUMMARY 
+==================================================
+Model               baseline  advanced
+Count                95.0000  105.0000
+Acc_room_type         0.7579    0.8000
+Acc_property_type     0.4526    0.5429
+Acc_bathrooms_text    0.6105    0.7619
+MAE_bedrooms          0.5053    0.4286
+MAE_beds              0.5368    0.2762
+MAE_accommodates      1.0211    0.5238
+Jaccard_amenities     0.4947    0.5975
+==================================================
+
+Metric Definitions:
