@@ -1,5 +1,5 @@
 import json
-from typing import List, Set
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -132,7 +132,6 @@ def main():
     print("=" * 50)
     print(results_df)
     print("=" * 50)
-    print("\nMetric Definitions:")
 
 
 if __name__ == "__main__":
