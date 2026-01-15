@@ -1,6 +1,7 @@
 import re
 import joblib
 import json
+import ast
 import pandas as pd
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -128,7 +129,7 @@ class AdvancedPredictionModel(PredictionModel):
         if model_type == 'classification':
             clf = LogisticRegression(max_iter=2000, C=1.0, solver="lbfgs")
         else:
-            clf = Ridge(alpha=0.5)
+            clf = Ridge(alpha=1)
 
         pipeline = Pipeline([
             ("cleaner", TextCleaner()),
@@ -157,45 +158,81 @@ class AdvancedPredictionModel(PredictionModel):
         predictions["model_version"] = "advanced"
         return predictions
 
+def calculate_jaccard(list1: list, list2: list) -> float:
+    s1 = set(list1) if isinstance(list1, list) else set()
+    s2 = set(list2) if isinstance(list2, list) else set()
+
+    if not s1 and not s2:
+        return 1.0
+
+    intersection = len(s1.intersection(s2))
+    union = len(s1.union(s2))
+    return intersection / union if union > 0 else 0.0
+
 def evaluate_models(base_model, adv_model, df_test):
     print("\n--- Evaluation on Test Set ---")
     
     classification_targets = ['room_type', 'property_type', 'bathrooms_text']
     regression_targets = ['bedrooms', 'beds', 'accommodates']
+    regex_targets = ['amenities']
+    
     results = []
-    for target in classification_targets + regression_targets:
-        if not target in df_test.columns:
-            raise Exception("Illegal column:" + target)
+    
+    for target in classification_targets + regression_targets + regex_targets:
+        if target not in df_test.columns:
+            print(f"Warning: Column {target} missing in test set.")
+            continue
         
         valid_test = df_test.dropna(subset=[target, "description"])
-        if not valid_test.empty:
+        if valid_test.empty:
+            continue
+
+        if target == 'amenities':
+            metric_name = "Jaccard"
+            
+            def safe_parse_list(x):
+                if not isinstance(x, str):
+                    return x
+                try:
+                    return ast.literal_eval(x)
+                except (ValueError, SyntaxError):
+                    return []
+            
+            y_true = valid_test[target].apply(safe_parse_list)
+            
+            y_pred_base = valid_test["description"].apply(lambda x: base_model.predict(x).get(target, []))
+            y_pred_adv = valid_test["description"].apply(lambda x: adv_model.predict(x).get(target, []))
+            
+            score_base = np.mean([calculate_jaccard(p, t) for p, t in zip(y_pred_base, y_true)])
+            score_adv = np.mean([calculate_jaccard(p, t) for p, t in zip(y_pred_adv, y_true)])
+            
+            improvement = score_adv - score_base
+        else:
             y_true = valid_test[target]
-            y_pred_base = [base_model.predict("") [target]] * len(valid_test)            
+            base_val = base_model.predict("")[target]
+            y_pred_base = [base_val] * len(valid_test)            
             y_pred_adv = valid_test["description"].apply(lambda x: adv_model.predict(x).get(target, 0))
 
             if target in regression_targets:
-                metric = mean_absolute_error
                 metric_name = "MAE"
+                score_base = mean_absolute_error(y_true, y_pred_base)
+                score_adv = mean_absolute_error(y_true, y_pred_adv)
+                improvement = score_base - score_adv 
             else:
-                metric = accuracy_score
                 metric_name = "Accuracy"
-                
-            score_base = metric(y_true, y_pred_base)
-            score_adv = metric(y_true, y_pred_adv)
-            
-            if target in regression_targets:
-                improvement = score_base - score_adv
-            else:
+                score_base = accuracy_score(y_true, y_pred_base)
+                score_adv = accuracy_score(y_true, y_pred_adv)
                 improvement = score_adv - score_base
-                
-            results.append({
-                "Target": target,
-                "Metric": metric_name,
-                "Base model score": round(score_base, 4),
-                "Advanced model score": round(score_adv, 4),
-                "Improvement": round(improvement, 4),
-                "Status": "SUKCES" if improvement > 0 else "PORAŻKA"
-            })
+
+        results.append({
+            "Target": target,
+            "Metric": metric_name,
+            "Base model score": round(score_base, 4),
+            "Advanced model score": round(score_adv, 4),
+            "Improvement": round(improvement, 4),
+            "Status": "SUKCES" if improvement >= 0 else "PORAŻKA"
+        })
+
     print(pd.DataFrame(results))
                 
 
